@@ -91,6 +91,7 @@ public class CronSchedulerTest {
         // Act
         final boolean firstCheck = scheduler.checkIfExecutionIsAllowed();
         scheduler.waitUntilNextExecutionIsAllowed();
+        sleep(25L);
         scheduler.moveToNextTimeSlot();
         final boolean secondCheck = scheduler.checkIfExecutionIsAllowed();
 
