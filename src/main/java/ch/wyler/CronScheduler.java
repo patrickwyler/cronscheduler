@@ -31,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CronScheduler implements Scheduler {
 
     private static final ZoneOffset TIMEZONE = UTC;
+    private static final long BUFFER = 100L;
     private Duration maxWaitingTime;
     private ExecutionTime executionTime;
     private Thread thread;
@@ -112,7 +113,7 @@ public class CronScheduler implements Scheduler {
             }
         }
 
-        final String formattedTimeToWait = formatDurationWords(timeToWait.toMillis(), true, true);
+        final String formattedTimeToWait = formatDurationWords(timeToWait.toMillis() + BUFFER, true, true);
         log.debug("Waiting time before next execution is {}. Next execution will be at '{}'", formattedTimeToWait,
                 nextExecutionTime);
         return timeToWait;
