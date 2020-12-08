@@ -63,7 +63,6 @@ public class CronScheduler implements Scheduler {
         final Duration timeToWaitForExecution = calculateTimeToWait();
 
         if (timeToWaitForExecution.isZero()) {
-            moveToNextTimeSlot();
             return; // no need to wait
         }
 
