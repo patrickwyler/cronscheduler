@@ -112,9 +112,17 @@ public class CronScheduler implements Scheduler {
             }
         }
 
-        final String formattedTimeToWait = formatDurationWords(timeToWait.toMillis(), true, true);
-        log.debug("Waiting time before next execution is {}. Next execution will be at '{}'", formattedTimeToWait,
-                nextExecutionTime);
-        return timeToWait;
+        log.debug("Waiting time before next execution is {} ({}ms). Next execution will be at '{}'",
+                formatDurationWords(timeToWait.toMillis(), true, true),
+                timeToWait.toMillis(), nextExecutionTime);
+        return fixCronUtilsDaylightSavingsChangingDateMayProduceIncorrectNextExecutionBug(timeToWait);
+    }
+
+    /**
+     * https://github.com/jmrozanec/cron-utils/issues/446 \n This bug has likely contributed to wrong calculations with the next
+     * execution period. This primarily saves test execution. May be removed in the future.
+     */
+    private Duration fixCronUtilsDaylightSavingsChangingDateMayProduceIncorrectNextExecutionBug(final Duration timeToWait) {
+        return timeToWait.plusMillis(1);
     }
 }

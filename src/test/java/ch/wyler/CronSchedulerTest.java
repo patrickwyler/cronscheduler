@@ -11,31 +11,31 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Duration;
 import java.time.LocalDateTime;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class CronSchedulerTest {
+class CronSchedulerTest {
 
-    private static final String CRON_EXPRESSION_EVERY_FIVE_SEC = "0/5 * * * * ?";
-    private static final String CRON_EXPRESSION_EVERY_MIN = "0 0/1 * * * ?";
+    private static final String CRON_EXPRESSION_EVERY_SEC = "* * * * * ?";
+    private static final String CRON_EXPRESSION_EVERY_MIN = "0 * * * * ?";
 
     @Test
-    public void testCronValidation() {
-        // Act & Assert
+    void testCronValidation() {
         assertThatThrownBy(() -> new CronScheduler("hello")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new CronScheduler("******")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new CronScheduler("* a * * * *")).isInstanceOf(IllegalArgumentException.class);
         assertThatNoException().isThrownBy(() -> new CronScheduler("* * * * * ? *"));
+        assertThatNoException().isThrownBy(() -> new CronScheduler(CRON_EXPRESSION_EVERY_SEC));
         assertThatNoException().isThrownBy(() -> new CronScheduler(CRON_EXPRESSION_EVERY_MIN));
-        assertThatNoException().isThrownBy(() -> new CronScheduler(CRON_EXPRESSION_EVERY_FIVE_SEC));
     }
 
     @Test
-    public void testWaitingTime() throws InterruptedException {
+    void testWaitingTime() throws InterruptedException {
         // Arrange
-        final CronScheduler scheduler = new CronScheduler(CRON_EXPRESSION_EVERY_FIVE_SEC);
+        final CronScheduler scheduler = new CronScheduler(CRON_EXPRESSION_EVERY_SEC);
 
         // Act
         scheduler.waitUntilNextExecutionIsAllowed();
@@ -45,15 +45,14 @@ public class CronSchedulerTest {
         final LocalDateTime secondRun = now();
 
         // Assert
-        final int sec = getSecondsBetween(firstRun, secondRun);
-        assertThat(sec).isEqualTo(5);
+        assertThat(MILLIS.between(firstRun, secondRun)).isBetween(1000L, 1100L);
     }
 
     @Test
-    public void testMaxWaitingTime() throws InterruptedException {
+    void testMaxWaitingTime() throws InterruptedException {
         // Arrange
-        final Duration MAX_WAITING_TIME = ofSeconds(2);
-        final CronScheduler scheduler = new CronScheduler(CRON_EXPRESSION_EVERY_MIN, MAX_WAITING_TIME);
+        final Duration maxWaitingTime = ofSeconds(2);
+        final CronScheduler scheduler = new CronScheduler(CRON_EXPRESSION_EVERY_MIN, maxWaitingTime);
 
         // Act
         final LocalDateTime firstRun = now();
@@ -61,19 +60,17 @@ public class CronSchedulerTest {
         final LocalDateTime secondRun = now();
 
         // Assert
-        final int sec = getSecondsBetween(firstRun, secondRun);
-        assertThat(sec).isEqualTo(2);
+        assertThat(MILLIS.between(firstRun, secondRun)).isBetween(2000L, 2200L);
     }
 
     @Test
-    public void testCheckIfExecutionIsAllowed() throws InterruptedException {
+    void testCheckIfExecutionIsAllowed() throws InterruptedException {
         // Arrange
-        final CronScheduler scheduler = new CronScheduler(CRON_EXPRESSION_EVERY_FIVE_SEC);
+        final CronScheduler scheduler = new CronScheduler(CRON_EXPRESSION_EVERY_SEC);
 
         // Act
         final boolean firstCheck = scheduler.checkIfExecutionIsAllowed();
         scheduler.waitUntilNextExecutionIsAllowed();
-        sleep(25L);
         final boolean secondCheck = scheduler.checkIfExecutionIsAllowed();
         scheduler.moveToNextTimeSlot();
         final boolean thirdCheck = scheduler.checkIfExecutionIsAllowed();
@@ -85,14 +82,13 @@ public class CronSchedulerTest {
     }
 
     @Test
-    public void testMoveToNextTimeSlot() throws InterruptedException {
+    void testMoveToNextTimeSlot() throws InterruptedException {
         // Arrange
-        final CronScheduler scheduler = new CronScheduler(CRON_EXPRESSION_EVERY_FIVE_SEC);
+        final CronScheduler scheduler = new CronScheduler(CRON_EXPRESSION_EVERY_SEC);
 
         // Act
         final boolean firstCheck = scheduler.checkIfExecutionIsAllowed();
         scheduler.waitUntilNextExecutionIsAllowed();
-        sleep(25L);
         scheduler.moveToNextTimeSlot();
         final boolean secondCheck = scheduler.checkIfExecutionIsAllowed();
 
@@ -102,9 +98,9 @@ public class CronSchedulerTest {
     }
 
     @Test
-    public void testStop() throws InterruptedException {
+    void testStop() throws InterruptedException {
         // Arrange
-        final CronScheduler scheduler = new CronScheduler(CRON_EXPRESSION_EVERY_MIN);
+        final CronScheduler scheduler = new CronScheduler(CRON_EXPRESSION_EVERY_SEC);
         final boolean[] interrupted = {false};
 
         final Thread thread = new Thread(() -> {
@@ -114,22 +110,26 @@ public class CronSchedulerTest {
                     scheduler.waitUntilNextExecutionIsAllowed();
                 } catch (final InterruptedException e) {
                     interrupted[0] = true;
+                    return;
                 }
             }
         });
 
         // Act
         thread.start();
-        sleep(25L);
+        sleep(200L);
         scheduler.stop(); // try to stop thread
-        sleep(25L);
+        sleep(100L);
 
         // Assert
         assertThat(interrupted[0]).isTrue();
     }
 
-    private int getSecondsBetween(final LocalDateTime startTime, final LocalDateTime endTime) {
-        final int millis = (int) MILLIS.between(startTime, endTime);
-        return ((millis + 500) / 1000); // correct rounding up/down to next second
+    @BeforeEach
+    void preventTestingIssue() throws InterruptedException {
+        final int second = now().getSecond();
+        if (second > 55) {
+            sleep((60 - second) * 1000);
+        }
     }
 }
